@@ -5,6 +5,12 @@ import datetime
 import imutils
 import time
 import cv2
+import os
+
+
+directory = 'records'
+if not os.path.exists(directory):
+    os.makedirs(directory)
  
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -27,6 +33,7 @@ firstFrame = None
 
 # loop over the frames of the video
 while True:
+	time.sleep(1.5)
 	# grab the current frame and initialize the occupied/unoccupied
 	# text
 	frame = vs.read()
@@ -71,6 +78,12 @@ while True:
 		(x, y, w, h) = cv2.boundingRect(c)
 		cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 		text = "Occupied"
+		print('MOVEMENT!')
+		now = datetime.datetime.now()
+		formated_date = f'{now.day}_{now.hour}-{now.minute}-{now.second}'
+
+		cv2.imwrite(f'records/room_{formated_date}.png',frame, [int(cv2.IMWRITE_PNG_COMPRESSION), 90])
+
 
 	# draw the text and timestamp on the frame
 	cv2.putText(frame, "Room Status: {}".format(text), (10, 20),
@@ -80,13 +93,15 @@ while True:
  
 	# show the frame and record if the user presses a key
 	cv2.imshow("Security Feed", frame)
-	cv2.imshow("Thresh", thresh)
-	cv2.imshow("Frame Delta", frameDelta)
+	# cv2.imshow("Thresh", thresh)
+	# cv2.imshow("Frame Delta", frameDelta)
 	key = cv2.waitKey(1) & 0xFF
  
 	# if the `q` key is pressed, break from the lop
 	if key == ord("q"):
 		break
+
+	firstFrame = gray
  
 # cleanup the camera and close any open windows
 vs.stop() if args.get("video", None) is None else vs.release()

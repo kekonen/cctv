@@ -7,20 +7,23 @@ import time
 import cv2
 import os
 
-
-directory = 'records'
-if not os.path.exists(directory):
-    os.makedirs(directory)
+jetson = 'nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)640, height=(int)480,format=(string)I420, framerate=(fraction)30/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink'
  
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--video", help="path to the video file")
 ap.add_argument("-a", "--min-area", type=int, default=500, help="minimum area size")
+ap.add_argument("-p", "--path", default='.', help="path to saves")
+ap.add_argument("-s", "--source", default=jetson, help="stream source")
 args = vars(ap.parse_args())
  
 # if the video argument is None, then we are reading from webcam
+
 if args.get("video", None) is None:
-	vs = VideoStream(src=0).start()
+	if args['source'] != jetson:
+		vs = VideoStream(src=int(args['source'])).start()
+	else:
+		vs = VideoStream(jetson).start()
 	time.sleep(2.0)
  
 # otherwise, we are reading from a video file
@@ -30,12 +33,17 @@ else:
 # initialize the first frame in the video stream
 firstFrame = None
 
+path = args['path']
+directory = path + '/records'
+if not os.path.exists(directory):
+    os.makedirs(directory)
 
 # loop over the frames of the video
 while True:
 	time.sleep(1.5)
 	# grab the current frame and initialize the occupied/unoccupied
 	# text
+
 	frame = vs.read()
 	frame = frame if args.get("video", None) is None else frame[1]
 	text = "Unoccupied"
@@ -78,18 +86,18 @@ while True:
 		(x, y, w, h) = cv2.boundingRect(c)
 		cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
 		text = "Occupied"
-		print('MOVEMENT!')
 		now = datetime.datetime.now()
-		formated_date = f'{now.day}_{now.hour}-{now.minute}-{now.second}'
+		formated_date = '{}_{}-{}-{}'.format(now.day, now.hour, now.minute, now.second)
+		# draw the text and timestamp on the frame
+		cv2.putText(frame, "Room Status: {}".format(text), (10, 20),
+			cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+		cv2.putText(frame, datetime.datetime.now().strftime("%A %d %B %Y %I:%M:%S%p"),
+			(10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
 
-		cv2.imwrite(f'records/room_{formated_date}.png',frame, [int(cv2.IMWRITE_PNG_COMPRESSION), 90])
+		cv2.imwrite(directory+'/room_{}.png'.format(formated_date),frame, [int(cv2.IMWRITE_PNG_COMPRESSION), 90])
 
 
-	# draw the text and timestamp on the frame
-	cv2.putText(frame, "Room Status: {}".format(text), (10, 20),
-		cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-	cv2.putText(frame, datetime.datetime.now().strftime("%A %d %B %Y %I:%M:%S%p"),
-		(10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
+	
  
 	# show the frame and record if the user presses a key
 	cv2.imshow("Security Feed", frame)
